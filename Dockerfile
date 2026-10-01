@@ -1,7 +1,8 @@
-FROM node:20-slim
+# F188c：Docker Hub 国际链路劣化（003/004 卡死在拉取基础镜像）——基础镜像改走国内公开镜像站
+FROM docker.1panel.live/library/node:20-slim
 
 # F188b：云托管构建上限 10 分钟——瘦身为必须项（fonts-noto-extra 数百 MB 已删，noto-cjk 中文够用）
-ARG CACHE_BUST=20261001b
+ARG CACHE_BUST=20261001c
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libreoffice-writer \
