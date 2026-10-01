@@ -27,6 +27,19 @@ function json(res, code, obj) {
 /* LibreOffice 可用的目标扩展名 -> 一律转 docx */
 const ALLOWED_SRC = new Set(['doc', 'wps', 'rtf', 'odt', 'pdf', 'dot', 'docm', 'html', 'htm', 'txt', 'xml', 'wpd']);
 
+/* F188：PDF 专项——pdf2docx（文字层 PDF→docx 版式还原质量高）优先，失败回退 LibreOffice 保底不断路 */
+function convertPdf(srcPath, outDir) {
+  return new Promise((resolve, reject) => {
+    const out = path.join(outDir, 'converted.docx');
+    execFile('pdf2docx', ['convert', srcPath, out], { timeout: 180 * 1000, maxBuffer: 32 * 1024 * 1024 }, (err) => {
+      let ok = false;
+      try { ok = !err && fs.existsSync(out) && fs.statSync(out).size > 1024; } catch (e) {}
+      if (ok) return resolve(out);
+      convertOne(srcPath, outDir).then(resolve, reject); /* 兜底：LibreOffice（质量差但绝不 422 断路） */
+    });
+  });
+}
+
 function convertOne(srcPath, outDir) {
   return new Promise((resolve, reject) => {
     const args = ['--headless', '--norestore', '--invisible', '--nocrashreport', '--nodefault',
@@ -46,7 +59,7 @@ function convertOne(srcPath, outDir) {
 const server = http.createServer((req, res) => {
   if (req.method === 'OPTIONS') { res.writeHead(204, CORS); return res.end(); }
   if (req.method === 'GET' && (req.url === '/' || req.url === '/healthz')) {
-    return json(res, 200, { ok: true, service: 'lunwen-convert', ver: 'F186' });
+    return json(res, 200, { ok: true, service: 'lunwen-convert', ver: 'F188' });
   }
   if (req.method !== 'POST' || !(req.url === '/' || req.url === '/convert')) {
     return json(res, 404, { ok: false, error: 'not found' });
@@ -69,7 +82,7 @@ const server = http.createServer((req, res) => {
       const outDir = path.join(os.tmpdir(), 'lunwen_out_' + crypto.randomBytes(4).toString('hex'));
       fs.mkdir(outDir, err => {
         if (err) { try { fs.unlinkSync(tmp); } catch (e) {} return json(res, 500, { ok: false, error: '临时目录创建失败' }); }
-        convertOne(tmp, outDir).then(docxPath => {
+        (ext === 'pdf' ? convertPdf : convertOne)(tmp, outDir).then(docxPath => {
           const buf = fs.readFileSync(docxPath);
           try { fs.unlinkSync(tmp); fs.rmSync(outDir, { recursive: true, force: true }); } catch (e) {}
           res.writeHead(200, Object.assign({
