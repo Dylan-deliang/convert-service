@@ -1,0 +1,13 @@
+{
+  "name": "lunwen-convert-service",
+  "version": "1.0.0",
+  "private": true,
+  "description": "F186 云端格式转换服务：任意文档 -> .docx（LibreOffice headless）",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "busboy": "^1.6.0"
+  }
+}
